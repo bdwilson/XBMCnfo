@@ -38,7 +38,7 @@ my $filesize = "30000";
 # If you know of TV show / Movie names you want to always
 # map to a particular name, then use this to map them properly.
 # "Your Dir/File Name" => "IMDB/TVDB Database Name" is the format.
-my %fixup = (#"The Office" => "The Office (US)",
+my %fixup = ("The Office" => "The Office (US)",
 	     "Human Target" => "Human Target (2010)",
 	     "Thomas & Friends" => "Thomas the Tank",
              "Castle" => "Castle (2009)");
