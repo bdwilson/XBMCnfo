@@ -243,7 +243,7 @@ if ($movie) {
 undef $xml;
  
 if ($movie) { 
-	print Dumper $imdb;
+	#print Dumper $imdb;
 	$xml = imdbToTmpl($imdb);
 	#print Dumper $xml;
 	$cover = $imdb->cover();
