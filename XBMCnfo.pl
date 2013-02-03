@@ -38,13 +38,10 @@ my $filesize = "30000";
 # If you know of TV show / Movie names you want to always
 # map to a particular name, then use this to map them properly.
 # "Your Dir/File Name" => "IMDB/TVDB Database Name" is the format.
-my %fixup = ("The Office" => "The Office (US)",
+my %fixup = (#"The Office" => "The Office (US)",
 	     "Human Target" => "Human Target (2010)",
 	     "Thomas & Friends" => "Thomas the Tank",
              "Castle" => "Castle (2009)");
-
-# now required for TVDB calls... :(
-my $tvdb_key = "7638ED60CC19B062";
  
 ########## You shouldn't have to edit below here #########
 my ($template_ref, $dir, $searchTerm, $imdb, $overwrite, $usedir, $xml, $cover,
@@ -63,7 +60,9 @@ if (!$tvshow)  {
 	$movie = 1;
 }
  
- 
+# now required for TVDB calls.
+my $tvdb_key = "7638ED60CC19B062";
+
 # autoflush;
 $|=1;
 # unicode support
@@ -76,64 +75,45 @@ my $movie_template =<<MXML;
 <movie>
    <title><TMPL_VAR NAME=TITLE></title>
    <plot><TMPL_VAR NAME=PLOT></plot>
-   <id><TMPL_VAR NAME=ID></id>
+   <id>tt<TMPL_VAR NAME=ID></id>
    <mpaa><TMPL_VAR NAME=CERTIFICATION></mpaa>
    <rating><TMPL_VAR NAME=RATING></rating>
    <year><TMPL_VAR NAME=DATE></year>
    <runtime><TMPL_VAR NAME=DURATION></runtime>
-   <TMPL_LOOP NAME=GENRE>
-     <TMPL_VAR NAME=NAME></TMPL_LOOP>
-   <TMPL_LOOP NAME=CAST>
-    <TMPL_VAR NAME=NAME></TMPL_LOOP>
-   </actor>
-   <TMPL_LOOP NAME=DIRECTORS>
-     <TMPL_VAR NAME=NAME></TMPL_LOOP>
+   <TMPL_LOOP NAME=GENRE><TMPL_VAR NAME=NAME></TMPL_LOOP>
+   <TMPL_LOOP NAME=CAST><TMPL_VAR NAME=NAME></TMPL_LOOP>
+   <TMPL_LOOP NAME=DIRECTORS><TMPL_VAR NAME=NAME></TMPL_LOOP>
 </movie>
 MXML
  
-my $tv_template =<<TXML;
-<media type="TV Show">
-   <title><TMPL_VAR NAME=TITLE></title>
-   <artist><TMPL_VAR NAME=NAME></artist>
-   <summary><TMPL_VAR NAME=SUMMARY></summary>
-   <description><TMPL_VAR NAME=DESCRIPTION></description>
-   <published><TMPL_VAR NAME=DATE></published>
-   <seriesName><TMPL_VAR NAME=NAME></seriesName>
-   <episode><TMPL_VAR NAME=EPISODE></episode>
-   <episodeNumber><TMPL_VAR NAME=EPISODENUM></episodeNumber>
-   <season><TMPL_VAR NAME=SEASON></season>
-</media>
-TXML
-
 my $xbmc_tv_template=<<XTVXML;
-    <episodedetails xsd="http://www.w3.org/2001/XMLSchema" xsi="http://www.w3.org/2001/XMLSchema-instance">
-        <title><TMPL_VAR NAME=TITLE></title>
-        <rating></rating>
-        <season><TMPL_VAR NAME=SEASON></season>
-        <episode><TMPL_VAR NAME=EPISODENUM></episode>
-        <plot><TMPL_VAR NAME=DESCRIPTION></plot>
-        <credits></credits>
-        <director></director>
-        <aired><TMPL_VAR NAME=DATE></aired>
-        <actor>
-        </actor>
- </episodedetails>
+<episodedetails xsd="http://www.w3.org/2001/XMLSchema" xsi="http://www.w3.org/2001/XMLSchema-instance">
+   <title><TMPL_VAR NAME=TITLE></title>
+   <season><TMPL_VAR NAME=SEASON></season>
+   <episode><TMPL_VAR NAME=EPISODENUM></episode>
+   <plot><TMPL_VAR NAME=DESCRIPTION></plot>
+   <thumb><TMPL_VAR NAME=THUMB></thumb>
+   <rating><TMPL_VAR NAME=RATING></rating>
+   <aired><TMPL_VAR NAME=DATE></aired>
+</episodedetails>
 XTVXML
 
 my $xbmc_tvseries_template=<<XTVSXML;
-<xml>
-    <tvshow>
-        <title><TMPL_VAR NAME=TITLE></title>
-	<episodeguide><TMPL_VAR NAME=EPISODEGUIDE></episodeguide>
-        <rating><TMPL_VAR NAME=RATING></rating>
-        <episode>0</episode>
-        <plot><TMPL_VAR NAME=DESCRIPTION></plot>
-	<genre></genre>
-        <premiered><TMPL_VAR NAME=DATE></premiered>
-        <actor>
-        </actor>
- </tvshow>
-</xml>
+<tvshow xsd="http://www.w3.org/2001/XMLSchema" xsi="http://www.w3.org/2001/XMLSchema-instance">
+   <title><TMPL_VAR NAME=TITLE></title>
+   <episodeguideurl><TMPL_VAR NAME=EPISODEGUIDE></episodeguideurl>
+   <episodeguide>
+      <url><TMPL_VAR NAME=EPISODEGUIDE></url>
+   </episodeguide>
+   <studio><TMPL_VAR NAME=NETWORK></studio>
+   <mpaa><TMPL_VAR NAME=MPAA></mpaa>
+   <rating><TMPL_VAR NAME=RATING></rating>
+   <thumb><TMPL_VAR NAME=THUMB></thumb>
+   <id><TMPL_VAR NAME=ID></id>
+   <plot><TMPL_VAR NAME=DESCRIPTION></plot>
+   <TMPL_LOOP NAME=GENRE><TMPL_VAR NAME=NAME></TMPL_LOOP>
+   <premiered><TMPL_VAR NAME=DATE></premiered>
+</tvshow>
 XTVSXML
  
 find(\&findfiles,$ARGV[0]);
@@ -145,11 +125,6 @@ sub findfiles {
   if ($movie) {
   	$template_ref = \$movie_template;
   } elsif ($tvshow) {
-	if (!$tvdb_key) {
-           print "You need an API key from http://www.thetvdb.com. Please".
-                 " create an account and request a key. \n";
-           exit 1;
-        }
   	$xbmc_template_ref = \$xbmc_tv_template;
   	$xbmc_tvseries_template_ref = \$xbmc_tvseries_template;
   }
@@ -186,13 +161,14 @@ $searchTerm = guessTitleFromFilename($file);
 foreach my $fix (keys %fixup) {
 	if ($searchTerm =~ /$fix/) {
 		$searchTerm=$fixup{$fix};
-		print "FOUND: $searchTerm\n";
+		print "Found a fixed name: $fix => $searchTerm\n";
 	}
 }
 
 $show_name = $searchTerm;
 if ($forcesearch) {
 	$searchTerm = $forcesearch;
+	print "Overriding Search Term with: $searchTerm\n";
 }
  
 undef $imdb;
@@ -206,16 +182,20 @@ if ($movie) {
 	#print Dumper $imdb;
 	$searchTerm = $imdb->id;
   }
-  last unless @results > 0;
  
-  # we'll assume the 1st hit is what we want...
-  if ($usefirst) {
+  # we'll assume the 1st hit is what we want or if we only
+  # get one result, we'll use that.
+  if ((@results > 0 && $usefirst) || (@results == 1)) {
 	$searchTerm = $results[0]->{id};
 	$show_name = $results[0]->{title};
 	print "Using first search result: $show_name\n";
+	last;
+  } elsif ($usefirst) {
+	print "No results found for $searchTerm. Try the -usedir option or removing -usefirst. Exiting.\n";
+	exit;
   }
  
-  if (@results > 0 && !$usefirst) {
+  if (!$usefirst) {
     my $choice = &displayMenu(@results);
     # undef and replace $imdb object
     if ($choice =~ /^[Nn]$/) {
@@ -226,20 +206,26 @@ if ($movie) {
     } else {
       $searchTerm = $results[$choice]->{id};
       $show_name = $results[$choice]->{title};
+      last;
     }
   }
  }
 } elsif ($tvshow && $searchTerm !~ /^\d{6,9}$/)  {
   my @results = doSeriesSearch($searchTerm);
-  last unless @results > 0;
+  my $found = 0;
  
-  # we'll assume the 1st hit is what we want...
-  if ($usefirst) {
+  # we'll assume the 1st hit is what we want or if we only
+  # get one result, we'll use that.
+  if ((@results > 0 && $usefirst) || (@results == 1)) {
         $searchTerm = $results[0]->{id};
         $show_name = $results[0]->{title};
         print "Using first search result: $show_name\n";
+	$found++;
+  } elsif ($usefirst) {
+	print "No results found for $searchTerm.  Try removing -usefirst. Exiting\n";
+	exit;
   }
-  if (@results > 0 && !$usefirst) {
+  if (!$usefirst && !$found) {
     my $choice = &displayMenu(@results);
     if ($choice =~ /^[Nn]$/) {
       $searchTerm = &getSearchTerm;
@@ -257,7 +243,7 @@ if ($movie) {
 undef $xml;
  
 if ($movie) { 
-	#print Dumper $imdb;
+	print Dumper $imdb;
 	$xml = imdbToTmpl($imdb);
 	#print Dumper $xml;
 	$cover = $imdb->cover();
@@ -269,13 +255,13 @@ if ($movie) {
         $show = getEpiInfo($searchTerm,$episode,$season);
         $cover = getBanner($searchTerm,$season);
 	# write out xbmc episode file
-        $xbmcxml = showToXBMCTmpl($show);
+        $xbmcxml = showToXBMCTmpl($show,$cover);
 	my ($outfile,$path,$suffix) = fileparse($file,qr/\.[^.]*/);
 	$outfile .= ".nfo";
 	&writeXMLFile($path.$outfile, $xbmcxml);
 
 	# write out xbmc series file
-	$xbmcseriesxml = seriesToXBMCTmpl($series);
+	$xbmcseriesxml = seriesToXBMCTmpl($series,$cover);
 	($outfile,$path,$suffix) = fileparse($file,qr/\.[^.]*/);
 	$outfile = "tvshow.nfo";
 	$path =~ s/.[^\/]*\/$/\//;
@@ -289,7 +275,7 @@ my ($coverfile,$coverfilepath,$coverfilesuffix) = fileparse($file,qr/\.[^.]*/);
 
 $content = get($cover);
 if ((! -f "$coverfilepath/folder.jpg") || ($overwrite)) { 
-	print "Writing folder.jpg to $coverfilepath\n";
+	print "Saving $cover to $coverfilepath" . "folder.jpg\n";
 	open(OUT, ">$coverfilepath/folder.jpg");
 	print OUT $content;
 	close(OUT);
@@ -357,22 +343,29 @@ sub displayMenu {
   my $i = $#results;
   my $maxpad = length($i);
   my $pad;
+  my $cnt = 0;
  
  if ($movie) {
   foreach my $result (reverse @{ $imdb->matched }) {
-    my $length = length("$i");
-    $pad = $length >= $maxpad ? 0 : $maxpad - $length;
-    print ' ' x $pad;
-    print "$i. ".$result->{title}."\n";
-    $i--;
+    if ($result->{title} =~ /\S+/) {
+    	my $length = length("$i");
+    	$pad = $length >= $maxpad ? 0 : $maxpad - $length;
+    	print ' ' x $pad;
+    	print "$i. ".$result->{title}."\n";
+    	$i--;
+	$cnt++;
+    } 
   }
  } elsif ($tvshow) {
   foreach my $result (reverse @results) {
-    my $length = length("$i");
-    $pad = $length >= $maxpad ? 0 : $maxpad - $length;
-    print ' ' x $pad;
-    print "$i. ".$result->{title}."\n";
-    $i--;
+    if ($result->{title} =~ /\S+/) {
+    	my $length = length("$i");
+    	$pad = $length >= $maxpad ? 0 : $maxpad - $length;
+    	print ' ' x $pad;
+    	print "$i. ".$result->{title}."\n";
+    	$i--;
+	$cnt++;
+    }
   }
  }
  
@@ -382,19 +375,24 @@ sub displayMenu {
   print ' ' x $pad;
   print "S. Skip this title\n";
 
-  my $res_cnt = $#results+1;
- 
-  print "Got $res_cnt results; use? [0]: ";
-  my $choice = <STDIN>;
-  chomp($choice);
- 
-  $choice = 0 if ($choice =~ m/^\s*$/);
- 
+  my $choice;
+  if ($cnt == 0) { 
+  	print "Got $cnt results; use? [N]: ";
+  	$choice = <STDIN>;
+  	chomp($choice);
+  	$choice = "N" if ($choice =~ m/^\s*$/);
+  } else {
+  	print "Got $cnt results; use? [0]: ";
+  	$choice = <STDIN>;
+  	chomp($choice);
+  	$choice = "0" if ($choice =~ m/^\s*$/);
+  }
   return $choice;
 }
  
 sub seriesToXBMCTmpl {
   my $show = shift;
+  my $cover = shift;
   my $t;
   my $tmpl = HTML::Template->new(
 	scalarref => $xbmc_tvseries_template_ref,
@@ -403,13 +401,27 @@ sub seriesToXBMCTmpl {
   $tmpl->param(TITLE => $show->{'Name'});
   $tmpl->param(DESCRIPTION=> $show->{'Overview'});
   $tmpl->param(DATE => $show->{'FirstAired'});
-  $tmpl->param(RATING => $show->{'Rating'});
+  $tmpl->param(MPAA=> $show->{'MPAA'});
+  $tmpl->param(Rating=> $show->{'Rating'});
+  $tmpl->param(NETWORK => $show->{'Network'});
   $tmpl->param(EPISODEGUIDE => $show->{'EpisodeGuide'});
+  $tmpl->param(ID=> $show->{'id'});
+  $tmpl->param(THUMB=> $cover);
+  my @genres = ();
+  foreach my $genre (split(/\|/,$show->{'Genre'})) {
+    if ($genre =~ /\S+/) {
+    	my %genre_row;
+    	$genre_row{NAME} = "<genre>$genre</genre>\n";
+    	push(@genres, \%genre_row);
+     }
+  }
+  $tmpl->param(GENRE => \@genres);
   return $tmpl->output;
 }
 
 sub showToXBMCTmpl {
   my $show = shift;
+  my $cover = shift;
   my $t;
   my $tmpl = HTML::Template->new(
 	scalarref => $xbmc_template_ref,
@@ -425,6 +437,8 @@ sub showToXBMCTmpl {
   $tmpl->param(EPISODE => $episode);
   $tmpl->param(SEASON => $season);
   $tmpl->param(NAME => $show_name);
+  $tmpl->param(RATING => $show->{'Rating'});
+  $tmpl->param(THUMB => $cover);
   #$tmpl->param(ARTIST=> $show_name);
   $tmpl->param(EPISODENUM=> $episode);
   return $tmpl->output;
@@ -493,10 +507,9 @@ sub imdbToTmpl {
  
   # genres
   my @genres = ();
-  my $first = 1;
   foreach my $genre (@{ $film->genres() }) {
     my %genre_row;
-    $genre_row{NAME} = "<genre>$genre</genre>";
+    $genre_row{NAME} = "<genre>$genre</genre>\n";
     push(@genres, \%genre_row);
   }
   $tmpl->param(GENRE => \@genres);
@@ -504,8 +517,9 @@ sub imdbToTmpl {
   # cast
   my @cast = ();
   foreach my $castmember (@{ $film->cast() }) {
+    chomp($castmember->{name});
     my %cast_row;
-    $cast_row{NAME} = "<actor>$castmember->{name}</actor>";
+    $cast_row{NAME} = "<actor>$castmember->{name}</actor>\n";
     push(@cast, \%cast_row);
   }
   @cast = @cast[0..4];
@@ -515,7 +529,7 @@ sub imdbToTmpl {
   my @directors = ();
   foreach my $director (@{ $film->directors() }) {
     my %director_row;
-    $director_row{NAME} = "<director>$director->{name}</director>";
+    $director_row{NAME} = "<director>$director->{name}</director>\n";
     push(@directors, \%director_row);
   }
   @directors = @directors[0..1] if $#directors > 0;
@@ -534,11 +548,11 @@ sub guessTitleFromFilename {
 	print "Using Dir $dir\n";
   }
   if ($tvshow) {
+	# Expecting something like Show - SXXEXX - Title
+	# Show - Title - SXXEXX, or something without the spaces.
   	$guess =~ s/\(.*\)//g; # remove anything in ()s
-	$guess =~ s/2010//g;
 	$guess =~ /(.*?)[\.\s\-]+[Ss]?(\d{1,2})[Eex]?(\d{1,3})/;
 	if (!$2 && !$3) {
-		print "HERE\n";
 		$guess =~ /(.*?)[\s\-\.\[]+([0-9]+)x([0-9]+)]?/;
 		$guess = $1; 
 		$season = $2;
@@ -555,9 +569,10 @@ sub guessTitleFromFilename {
 		$episode = $2;
 	}
 	$guess =~ s/\./ /g;  # some shows have .'s instead of spaces
+	$guess =~ s/\-[^-]*$//g; # remove everything after last "-" (show name) 
 	$episode =~ s/^0//;
 	$season =~ s/^0//;
-  	print "Searching TheTVDB for: $guess (Season $season, Episode $episode)\n";
+	print "Searching TheTVDB for: $guess (Season $season, Episode $episode)\n";
   } elsif ($movie) {
   	$guess =~ s/\..{1,3}\.?.{0,3}$//;   # strip off extension or sabnzbd 
 		             		    # duplicate file/dir extension (.#)
@@ -567,7 +582,7 @@ sub guessTitleFromFilename {
   	$guess =~ tr/A-Z/a-z/; # eh
   	$guess =~ s/_/ /g;
   	$guess =~ s/-\d+$//;
-  	print "Searching IMDB for: $guess\n";
+	print "Searching IMDB for: $guess\n";
  }
  
   return $guess;
@@ -592,7 +607,7 @@ sub doSeriesSearch {
         # returns an array of hashes with search results (name & ID)
         my $term = shift;
         my $series_url = "http://www.thetvdb.com/api/GetSeries.php?seriesname=$term";
-	print "$series_url\n";
+	print "Performing TheTVDB Search: $series_url\n";
         my $content = get ($series_url);
         my $xs = XML::TreePP->new();
         my $ref = $xs->parse($content);
@@ -649,7 +664,23 @@ sub getSeriesInfo {
 		} else {
 			$info{'Name'} = "Unknown";
 		}
+		if ($ref->{Data}->{Series}->{'Genre'} !~ /^HASH/) {
+			$info{'Genre'} = $ref->{Data}->{Series}->{'Genre'};
+		} else {
+			$info{'Genre'} = "Unknown";
+		}
+		if ($ref->{Data}->{Series}->{'Network'} !~ /^HASH/) {
+			$info{'Network'} = $ref->{Data}->{Series}->{'Network'};
+		} else {
+			$info{'Network'} = "Unknown";
+		}
+		if ($ref->{Data}->{Series}->{'ContentRating'} !~ /^HASH/) {
+			$info{'MPAA'} = $ref->{Data}->{Series}->{'ContentRating'};
+		} else {
+			$info{'MPAA'} = "Unknown";
+		}
 		$info{'EpisodeGuide'} = $series_zip;
+		$info{'id'} = $s;
         }
         return \%info;
 }
@@ -681,6 +712,11 @@ sub getEpiInfo {
 			$info{'Name'} = $ref->{Data}->{Episode}->{'EpisodeName'};
 		} else {
 			$info{'Name'} = "Unknown";
+		}
+		if ($ref->{Data}->{Episode}->{'Rating'} !~ /^HASH/) {
+			$info{'Rating'} = $ref->{Data}->{Episode}->{'Rating'};
+		} else {
+			$info{'Rating'} = "Unknown";
 		}
         }
         return \%info;
