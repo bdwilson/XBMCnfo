@@ -69,26 +69,52 @@ Examples
 ### Movies
 
 The following traverse your /media/Movies/Christmas Vacation (1989) folder, and
-prompt you to confirm the name from any search matches. It will use the base directory of the Movie as the search term
-for searching, overwrite any existing .nfo/.jpg files and pull larger images
-from The Movie Poster database.
+prompt you to confirm the name if the number of matches is > 1. It will use the base directory of the Movie as the search term
+for searching, overwrite any existing .nfo/.jpg files and pull larger images from The Movie Poster database.
 
 <pre>$ XBMCnfo.pl -duration -altimg -overwrite -usedir -movie "/media/Movies/Christmas Vacation (1989)"
 FILE: /media/Movies/Christmas Vacation (1989)/xmasvacation.avi
+Found xmasvacation.nfo.. Will overwrite.
 Using Dir Christmas Vacation (1989)
 Searching IMDB for: christmas vacation 
-0. Christmas Vacation (1989)
-N. enter a new search term
-S. Skip this title
-Got 1 results; use? [0]: 0
+Using first search result: Christmas Vacation (1989)
 Creating /media/Movies/Christmas Vacation (1989)/xmasvacation.nfo
-Writing folder.jpg to /media/Movies/Christmas Vacation (1989)/
-Got new image via MoviePosterDB:
-http://www.movieposterdb.com/posters/06_02/1989/0097958/l_91473_0097958_623cbd0d.jpg
+Saving http://ia.media-imdb.com/images/M/MV5BMTI1OTExNTU4NF5BMl5BanBnXkFtZTcwMzIwMzQyMQ@@._V1_SY317_CR5,0,214,317_.jpg to /media/Movies/Christmas Vacation (1989)/folder.jpg
+Got new image via MoviePosterDB: http://www.movieposterdb.com/posters/06_02/1989/0097958/l_91473_0097958_623cbd0d.jpg
+</pre>
+
+Here's an example withg multiple results where user interaction is required:
+
+<pre>$ XBMCnfo.pl -duration -altimg -overwrite -usedir -movie /media/Movies/Duplicity
+FILE: /media/Movies/Duplicity/Duplicity.mp4
+Found Duplicity.nfo.. Will overwrite.
+Using Dir Duplicity
+Searching IMDB for: duplicity
+14. Smallville (2001) (TV Series)
+13. Duplicity (2002) (TV Episode) -
+12. Army Wives (2007) (TV Series)
+11. Duplicity (2008) (TV Episode) -
+10. Cinetipp (2002) (TV Series)
+ 9. Duplicity (2009) (TV Episode) -
+ 8. Revenge (2011) (TV Series)
+ 7. Duplicity (2011) (TV Episode) -
+ 6. Duplicity (2007) (Short)
+ 5. Duplicity (1978) (Short)
+ 4. Duplicity (1916) (Short)
+ 3. Duplicity (2011)
+ 2. Duplicity (2004)
+ 1. Trouble (2005) aka "Duplicity"
+ 0. Duplicity (2009)
+ N. enter a new search term
+ S. Skip this title
+Got 15 results; use? [0]: 0
+Creating /media/Movies/Duplicity/Duplicity.nfo
+Saving http://ia.media-imdb.com/images/M/MV5BMjE2MTg2MzU2NF5BMl5BanBnXkFtZTcwMTMyNjkxMg@@._V1_SY317_CR0,0,214,317_.jpg to /media/Movies/Duplicity/folder.jpg
+Got new image via MoviePosterDB: http://www.movieposterdb.com/posters/09_03/2009/1135487/l_1135487_e6df4ae1.jpg
 </pre>
 
 If you're confident that your directory name is going to come up with the
-proper name, then you can try using -usefirst option which will not prompt and
+proper search result, then you can try using -usefirst option which will not prompt and
 use the first search result.
 
 <pre>$ XBMCnfo.pl -duration -altimg -overwrite -usedir -movie -usefirst "/media/Movies/Christmas Vacation (1989)"
@@ -124,7 +150,7 @@ Writing folder.jpg to /media/TV/New Girl/Season 2/
 Writing another folder.jpg to /media/TV/New Girl/folder.jpg
 </pre>
 
-Or if you know the TVDB ID or want to pass a search term to use...
+Or if you know the TVDB ID or want to pass a search term instead of relying on the file name.
 
 <pre>$ XBMCnfo.pl -tvshow -usefirst -overwrite -searchterm 248682 /media/TV/New\ Girl
 FILE: /media/TV/New Girl/Season 2/New Girl - S02E01 - Re-Launch.mkv
