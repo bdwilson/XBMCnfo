@@ -220,7 +220,7 @@ if ($movie) {
         $searchTerm = $results[0]->{id};
         $show_name = $results[0]->{title};
         print "Using first search result: $show_name\n";
-	$found++;
+        $found++;
   } elsif ($usefirst) {
 	print "No results found for $searchTerm.  Try removing -usefirst. Exiting\n";
 	exit;
