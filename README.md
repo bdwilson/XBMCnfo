@@ -30,7 +30,7 @@ sudo cpanm IMDB::Film HTML::Template Date::Manip LWP::Simple XML::TreePP File::F
 
 Usage
 -----
-This script can be used to automate creation of .nfo files or can be used
+This script can be used to automate creation of .nfo files and thumbnail images or can be used
 interactively.  Below are some examples of it's usage, or you can run XBMCnfo.pl 
 by itself and try to figure this out on your own.
 
