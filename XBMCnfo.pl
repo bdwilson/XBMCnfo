@@ -131,7 +131,7 @@ sub findfiles {
   return unless -f $file;            
   return unless $_ =~ m/$extensions/io;  
   return if $_ =~ /sample/i;
-  print "FILE: $file\n";
+  print "Found media file: $file\n";
   if ($deldup) {
   	my $dup_file = $file;
   	$dup_file =~ s/\.1\.(\S{1,3})$/\.$1/;
@@ -177,15 +177,31 @@ undef $show;
 # main loop
 if ($movie) {
  while ($imdb = IMDB::Film->new(crit => "$searchTerm")) {
+  #print Dumper $imdb;
+  
   my @results = @{ $imdb->matched };
-  if (!@results && $imdb) {
-	#print Dumper $imdb;
+  #if (!@results && $imdb) {
+  #	$searchTerm = $imdb->id;
+  #}
+
+  #print "Searchterm: $searchTerm\n";
+  #print "Results #:  $#results\n";
+  #print "Status: ";
+  #print Dumper $imdb->status . "\n";
+  #print "Matched: ";
+  #print Dumper $imdb->matched . "\n";
+  #print "Results: . ";
+
+  # bizarre that search by imdb number gives 
+  # -1 as a successful result. oh well.
+  if ($#results == -1 && $imdb->status) {
 	$searchTerm = $imdb->id;
-  }
+	last;
+  } 
  
   # we'll assume the 1st hit is what we want or if we only
   # get one result, we'll use that.
-  if ((@results > 0 && $usefirst) || (@results == 1)) {
+  if ((@results > 0 && $usefirst) || ($imdb->status && $#results ==0)) {
 	$searchTerm = $results[0]->{id};
 	$show_name = $results[0]->{title};
 	print "Using first search result: $show_name\n";
@@ -195,7 +211,7 @@ if ($movie) {
 	exit;
   }
  
-  if (!$usefirst) {
+  if ((!$usefirst && !$imdb->status) || (@results > 0 && !$usefirst)) {
     my $choice = &displayMenu(@results);
     # undef and replace $imdb object
     if ($choice =~ /^[Nn]$/) {
@@ -347,7 +363,7 @@ sub displayMenu {
  
  if ($movie) {
   foreach my $result (reverse @{ $imdb->matched }) {
-    if ($result->{title} =~ /\S+/) {
+    if (exists($result->{title}) && ($result->{title} =~ /\S+/)) {
     	my $length = length("$i");
     	$pad = $length >= $maxpad ? 0 : $maxpad - $length;
     	print ' ' x $pad;
@@ -578,9 +594,9 @@ sub guessTitleFromFilename {
 		             		    # duplicate file/dir extension (.#)
   	$guess =~ s/\(.*\)//g; # remove anything in ()s
   	$guess =~ s/\[.*\]//g; # remove anything in []s
-  	$guess =~ s/[\.|\'|\"|\,]//g;  # remove .,"'
+  	$guess =~ s/[\'|\"|\,]//g;  # remove .,"'
   	$guess =~ tr/A-Z/a-z/; # eh
-  	$guess =~ s/_/ /g;
+  	$guess =~ s/[\_|\.]/ /g;
   	$guess =~ s/-\d+$//;
 	print "Searching IMDB for: $guess\n";
  }
