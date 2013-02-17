@@ -47,13 +47,14 @@ my %fixup = ("The Office" => "The Office (US)",
 my ($template_ref, $dir, $searchTerm, $imdb, $overwrite, $usedir, $xml, $cover,
 $content, $usefirst, $tvshow, $movie, $season, $episode, $show, $show_name,
 $episode_num, %season_hash, $altimg, $deldup, $xbmc_template_ref, $xbmcxml,
-$xbmc_tvseries_template_ref, $series, $xbmcseriesxml, $forcesearch);
+$xbmc_tvseries_template_ref, $series, $xbmcseriesxml, $forcesearch, $forcetitle,
+$show_title);
  
 my $use_duration = 0;
 &usage unless GetOptions("duration" => \$use_duration, "overwrite" =>
 \$overwrite, "usedir" => \$usedir, "usefirst" => \$usefirst,
 "movie" => \$movie, "tvshow" => \$tvshow, "altimg"=> \$altimg, "deldup"=>
-\$deldup, "searchterm=s" => \$forcesearch);
+\$deldup, "searchterm=s" => \$forcesearch, "forcetitle" => \$forcetitle);
 
 # do movie searches by default
 if (!$tvshow)  {
@@ -180,17 +181,6 @@ if ($movie) {
   #print Dumper $imdb;
   
   my @results = @{ $imdb->matched };
-  #if (!@results && $imdb) {
-  #	$searchTerm = $imdb->id;
-  #}
-
-  #print "Searchterm: $searchTerm\n";
-  #print "Results #:  $#results\n";
-  #print "Status: ";
-  #print Dumper $imdb->status . "\n";
-  #print "Matched: ";
-  #print Dumper $imdb->matched . "\n";
-  #print "Results: . ";
 
   # bizarre that search by imdb number gives 
   # -1 as a successful result. oh well.
@@ -227,7 +217,7 @@ if ($movie) {
   }
  }
 } elsif ($tvshow && $searchTerm !~ /^\d{6,9}$/)  {
-  my @results = doSeriesSearch($searchTerm);
+  my @results = doSeriesSearch($searchTerm,$usefirst);
   my $found = 0;
  
   # we'll assume the 1st hit is what we want or if we only
@@ -271,7 +261,7 @@ if ($movie) {
         $show = getEpiInfo($searchTerm,$episode,$season);
         $cover = getBanner($searchTerm,$season);
 	# write out xbmc episode file
-        $xbmcxml = showToXBMCTmpl($show,$cover);
+        $xbmcxml = showToXBMCTmpl($show,$cover,$file);
 	my ($outfile,$path,$suffix) = fileparse($file,qr/\.[^.]*/);
 	$outfile .= ".nfo";
 	&writeXMLFile($path.$outfile, $xbmcxml);
@@ -303,7 +293,8 @@ if (((! -f "$fpath") || ($overwrite)) && (!$movie) && ($coverfilepath =~ /Season
 	print "Writing another folder.jpg to $fpath\n";
 	open(OUT, ">$fpath");
 	print OUT $content;
-
+	sleep 1;
+	close(OUT);
 }
  
 my $fsize=stat("$coverfilepath/folder.jpg")->size;
@@ -438,18 +429,33 @@ sub seriesToXBMCTmpl {
 sub showToXBMCTmpl {
   my $show = shift;
   my $cover = shift;
+  my $file = shift;
   my $t;
   my $tmpl = HTML::Template->new(
 	scalarref => $xbmc_template_ref,
 	die_on_bad_params => 0,
   );
-  $t = $show->{'Name'};
+  if ($show_title) {
+	$t = $show_title;
+  } else {
+  	$t = $show->{'Name'};
+  }
   $tmpl->param(TITLE => $t);
-  $tmpl->param(SUMMARY => $show->{'Name'});
-  $tmpl->param(DESCRIPTION=> $show->{'Overview'});
+  $tmpl->param(SUMMARY => $t);
+  if ($show->{'Overview'} !~ /\S+/ && -f "$file.plot") {
+	print "Overriding plot with contents of $file.plot\n";
+	open(PLOT, "<$file.plot");
+	my $plot = <PLOT>;
+	close(PLOT);
+ 	$tmpl->param(DESCRIPTION=> "$plot");
+  } else {
+  	$tmpl->param(DESCRIPTION=> $show->{'Overview'});
+  }
   my $date = ParseDate($show->{'FirstAired'});
-  $date = UnixDate("$date","%Y-%m-%d");
-  $tmpl->param(DATE => "$date");
+  if ($date) {
+  	$date = UnixDate("$date","%Y-%m-%d");
+  	$tmpl->param(DATE => "$date");
+  }
   $tmpl->param(EPISODE => $episode);
   $tmpl->param(SEASON => $season);
   $tmpl->param(NAME => $show_name);
@@ -558,6 +564,7 @@ sub guessTitleFromFilename {
   my $file = shift;
   $season = "";
   $episode = "";
+  my $t_title;
   my $guess = fileparse($file);
   if ($usedir && $movie) {
 	$guess = $dir;
@@ -585,7 +592,14 @@ sub guessTitleFromFilename {
 		$episode = $2;
 	}
 	$guess =~ s/\./ /g;  # some shows have .'s instead of spaces
-	$guess =~ s/\-[^-]*$//g; # remove everything after last "-" (show name) 
+	print "GUESS: $guess\n";
+	$guess =~ s/\-([^-]*)$//g; # remove everything after last "-" (show name) 
+	$t_title=$1;
+	if ($forcetitle) {
+		$show_title=$t_title;
+		$show_title =~ s/\s\s/ \/ /;
+		print "Overriding Episode Name to be: $show_title\n";
+	}
 	$episode =~ s/^0//;
 	$season =~ s/^0//;
 	print "Searching TheTVDB for: $guess (Season $season, Episode $episode)\n";
@@ -622,6 +636,7 @@ sub getEpiID {
 sub doSeriesSearch {
         # returns an array of hashes with search results (name & ID)
         my $term = shift;
+	my $first = shift;
         my $series_url = "http://www.thetvdb.com/api/GetSeries.php?seriesname=$term";
 	print "Performing TheTVDB Search: $series_url\n";
         my $content = get ($series_url);
@@ -629,18 +644,24 @@ sub doSeriesSearch {
         my $ref = $xs->parse($content);
         my @array;
         my $count = 0;
-
+	
+	if (defined $ref->{Data} && $ref->{Data} ne "") {
         # more than 1 result, we get an array, otherwise, we get a hash
-        if (ref($ref->{Data}->{Series}) eq 'ARRAY') {
-                foreach my $key (@{$ref->{Data}->{Series}}) {
-                        $array[$count]->{id}=$key->{'seriesid'};
-                        $array[$count]->{title}=$key->{'SeriesName'};
-                        $count++;
-                }
-        } else {
-                $array[$count]->{id}=$ref->{Data}->{Series}->{'seriesid'};
-                $array[$count]->{title}=$ref->{Data}->{Series}->{'SeriesName'};
-        }
+        	if (ref($ref->{Data}->{Series}) eq 'ARRAY') {
+                	foreach my $key (@{$ref->{Data}->{Series}}) {
+                        	$array[$count]->{id}=$key->{'seriesid'};
+                        	$array[$count]->{title}=$key->{'SeriesName'};
+                        	$count++;
+	                }
+        	} else {
+               		$array[$count]->{id}=$ref->{Data}->{Series}->{'seriesid'};
+                	$array[$count]->{title}=$ref->{Data}->{Series}->{'SeriesName'};
+       		}
+	} elsif ((defined $usefirst) && ($usefirst == 1)) {
+		print "No matches found. Try removing --usefirst from your option.\n";
+		exit 1;
+	}
+
         return @array;
 }
 
@@ -791,6 +812,10 @@ sub usage {
   print "                  for this option to be useful.\n\n";
   print "    -searchterm   If you know the show name or IMDB/TVDB ID you want to search for, use this\n";
   print "                  in combination of -usefirst to force the proper show/movie name.\n\n";
+  print "    -forcetitle   For tvshows, if you don't trust the episode title you get back from the\n";
+  print "                  theTVdb, then you can force it to use the name found in the filename.\n";
+  print "                  Helpful for syndicated shows that combine episodes where theTVdb does not.\n";
+  print "                  Plot can also be overwritten if <moviefile.mp4.plot> file exists.\n\n";
   print "  -tvshow|-movie  lookup either via TheTVDB or IMDB (-movie is default if\n";
   print "                  nothing is specified).";
   print "\n";
