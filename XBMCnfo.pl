@@ -442,7 +442,7 @@ sub showToXBMCTmpl {
   }
   $tmpl->param(TITLE => $t);
   $tmpl->param(SUMMARY => $t);
-  if ($show->{'Overview'} !~ /\S+/ && -f "$file.plot") {
+  if (-f "$file.plot") {
 	print "Overriding plot with contents of $file.plot\n";
 	open(PLOT, "<$file.plot");
 	my $plot = <PLOT>;
@@ -592,10 +592,16 @@ sub guessTitleFromFilename {
 		$episode = $2;
 	}
 	$guess =~ s/\./ /g;  # some shows have .'s instead of spaces
-	print "GUESS: $guess\n";
-	$guess =~ s/\-([^-]*)$//g; # remove everything after last "-" (show name) 
-	$t_title=$1;
-	if ($forcetitle) {
+	my $old_guess = $guess;	
+	# for filesnames with episode titles in them
+	if ($old_guess =~ s/^([^-]*)\-(.*)$//g) {
+		$guess = $1;
+		$t_title=$2;
+	} else {
+		# no episode title, just showname
+		$guess =~ s/\-([^-]*)$//g; # remove everything after last "-" (show name) 
+	}
+	if ($forcetitle && $t_title) {
 		$show_title=$t_title;
 		$show_title =~ s/\s\s/ \/ /;
 		print "Overriding Episode Name to be: $show_title\n";
